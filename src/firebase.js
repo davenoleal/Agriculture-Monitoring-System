@@ -1,6 +1,6 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { deleteApp, initializeApp } from "firebase/app";
+import { createUserWithEmailAndPassword, deleteUser, getAuth } from "firebase/auth";
+import { doc, getFirestore, setDoc } from "firebase/firestore";
 
 const env = import.meta.env;
 
@@ -18,3 +18,28 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const ADMIN_UID = "f1Vb911OgwTvPFB1wl4WGgiL8au2";
+
+export async function createManagedAccount(email, password, profile) {
+  const secondaryApp = initializeApp(
+    firebaseConfig,
+    `managed-user-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
+  const secondaryAuth = getAuth(secondaryApp);
+
+  try {
+    const credential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    try {
+      await setDoc(doc(db, "users", credential.user.uid), profile);
+    } catch (error) {
+      try {
+        await deleteUser(credential.user);
+      } catch {
+        throw new Error("The profile could not be saved and the new authentication account could not be removed.");
+      }
+      throw error;
+    }
+    return credential.user.uid;
+  } finally {
+    await deleteApp(secondaryApp);
+  }
+}

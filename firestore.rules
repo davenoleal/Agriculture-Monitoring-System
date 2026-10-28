@@ -5,9 +5,16 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == 'f1Vb911OgwTvPFB1wl4WGgiL8au2';
     }
 
+    function hasSupportedRole() {
+      return request.resource.data.role in ['farmer', 'resident'];
+    }
+
     match /users/{uid} {
       allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
-      allow create, update: if request.auth != null && request.auth.uid == uid;
+      allow create: if isAdmin() && hasSupportedRole();
+      allow update: if (isAdmin() && hasSupportedRole()) ||
+        (request.auth != null && request.auth.uid == uid &&
+          request.resource.data.role == resource.data.role);
       allow delete: if isAdmin();
     }
 
